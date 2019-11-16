@@ -1,0 +1,58 @@
+package util;
+
+import ontology.concepts.Position;
+import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.linear.RealVector;
+import org.apache.commons.math3.stat.StatUtils;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: sulcanto
+ * Date: 5/25/13
+ * Time: 4:46 PM
+ * To change this template use File | Settings | File Templates.
+ */
+public class Functions {
+    public static double sigmoid(double x, double beta) {
+        return 1 / (1 + Math.exp(-x));
+    }
+
+
+    public static Position calculateWeightedMean(double[][] positions, double[] f) {
+
+        RealMatrix P = MatrixUtils.createRealMatrix(positions);
+        RealVector weight = MatrixUtils.createRealVector(f).unitVector();
+        for (int i = 0; i < weight.getDimension(); i++) {
+            weight.setEntry(i, 1 - weight.getEntry(i));
+        }
+        double xMean = StatUtils.mean(P.getColumnVector(0).projection(weight).toArray());
+        double yMean = StatUtils.mean(P.getColumnVector(1).projection(weight).toArray());
+        return new Position(new double[]{xMean, yMean});
+    }
+
+    public static double[][] calculateWeightedCov(double[][] positions, double[] f) {
+        RealMatrix positionsMatrix = MatrixUtils.createRealMatrix(positions);
+        RealVector w = MatrixUtils.createRealVector(f).unitVector();
+        for (int i = 0; i < w.getDimension(); i++) {
+            w.setEntry(i, 1 - w.getEntry(i));
+        }
+
+        RealVector mean = MatrixUtils.createRealVector(new double[]{
+                StatUtils.mean(positionsMatrix.getColumn(0)),
+                StatUtils.mean(positionsMatrix.getColumn(1))});
+
+        RealMatrix C = MatrixUtils.createRealMatrix(2, 2);
+
+        for (int row = 0; row < w.getDimension(); row++) {
+            positionsMatrix.setRowVector(row, positionsMatrix.getRowVector(row).subtract(mean).mapMultiply(w.getEntry(row)));
+        }
+
+        C.setEntry(0, 0, positionsMatrix.getRowVector(0).dotProduct(positionsMatrix.getRowVector(0)));
+        C.setEntry(0, 1, positionsMatrix.getRowVector(0).dotProduct(positionsMatrix.getRowVector(1)));
+        C.setEntry(1, 0, positionsMatrix.getRowVector(1).dotProduct(positionsMatrix.getRowVector(0)));
+        C.setEntry(1, 1, positionsMatrix.getRowVector(1).dotProduct(positionsMatrix.getRowVector(1)));
+        C = C.scalarMultiply(1 / C.getNorm());
+        return C.getData();
+    }
+}

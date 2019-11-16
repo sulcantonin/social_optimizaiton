@@ -1,0 +1,146 @@
+package agents;
+
+import agents.visualisation.ContourGraphPanel;
+import benchmark.problem.function.*;
+import benchmark.problem.function.Function;
+import jade.content.Concept;
+import jade.content.ContentElement;
+import jade.content.lang.Codec;
+import jade.content.onto.OntologyException;
+import jade.core.AID;
+import jade.core.behaviours.CyclicBehaviour;
+import jade.lang.acl.ACLMessage;
+import jade.wrapper.AgentController;
+import jade.wrapper.ContainerController;
+import jade.wrapper.StaleProxyException;
+import ontology.actions.TellPosition;
+import ontology.concepts.Position;
+
+import javax.swing.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: sulcanto
+ * Date: 5/18/13
+ * Time: 6:56 PM
+ * To change this template use File | Settings | File Templates.
+ */
+public class TheGodAgent extends AbstractEntityAgent {
+
+    private static int humanCounter = 0;
+
+    public static String nextName() {
+        return "human" + humanCounter++;
+    }
+
+    private static final Function function = new RosenbrockFunction();
+
+    private ContourGraphPanel graphPanel;
+
+    public void setup() {
+        System.out.println(this.getClass().getSimpleName() + " started " + getAID().toString());
+        registerDF("higher-entity", this);
+        manager.registerLanguage(codec);
+        manager.registerOntology(ontology);
+
+
+        JFrame frame = new JFrame();
+        this.graphPanel = new ContourGraphPanel(function);
+
+
+        frame.add(this.graphPanel);
+        frame.setSize(640, 480);
+        frame.setVisible(true);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        // initializing score visualistion agent
+        ContainerController cc = getContainerController();
+        try {
+            // passing only one argument - fitness function
+            Object[] arguments = new Object[1];
+            arguments[0] = function;
+            AgentController ac;
+            ac = cc.createNewAgent("visualisation", "agents.ScoreVisualisationAgent", arguments);
+            ac.start();
+        } catch (StaleProxyException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+
+
+        // initializng humans
+        for (int i = 0; i < 5; i++) {
+            cc = getContainerController();
+            try {
+                String agentName = nextName();
+                // passing only one argument - fitness function
+                Object[] arguments = new Object[1];
+                arguments[0] = function;
+                AgentController ac;
+                ac = cc.createNewAgent(agentName, "agents.HumanAgent", arguments);
+                ac.start();
+            } catch (StaleProxyException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+        }
+
+        // RECEIVE : TellPosition,
+        // sensing positions of agents
+        this.addBehaviour(new CyclicBehaviour(this) {
+            int state = 0;
+            List<AID> humanAgents;
+            List<Position> positions;
+            List<jade.util.leap.List> friends;
+
+            @Override
+            public void action() {
+
+                switch (state) {
+                    case 0:
+                        this.humanAgents = new ArrayList<AID>();
+                        this.positions = new ArrayList<Position>();
+                        this.friends = new ArrayList<jade.util.leap.List>();
+                        humanAgents.addAll(Arrays.asList(getServiceProviderAgents("human-being", getAgent())));
+                        state = 1;
+                    case 1:
+                        ACLMessage message = receive(informTemplate);
+                        if (message != null) {
+
+                            ContentElement element = null;
+                            try {
+                                element = manager.extractContent(message);
+                                Concept action = ((jade.content.onto.basic.Action) element).getAction();
+                                if (action instanceof TellPosition) {
+                                    humanAgents.remove(message.getSender());
+                                    Position position = ((TellPosition) action).getPosition();
+                                    jade.util.leap.List friends = ((TellPosition) action).getFriends();
+                                    this.positions.add(position);
+                                    this.friends.add(friends);
+                                }
+
+                            } catch (Codec.CodecException e) {
+                                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                            } catch (OntologyException e) {
+                                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                            }
+
+                        } else {
+                            block();
+                        }
+
+                        if (humanAgents.isEmpty()) {
+                            graphPanel.renderAgents(positions, friends);
+                            state = 0;
+                        }
+
+                }
+
+            }
+        });
+
+
+    }
+
+}

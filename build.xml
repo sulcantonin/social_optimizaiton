@@ -1,0 +1,49 @@
+<project name="social-optimisiation" basedir="." default="main">
+    <property name="src.dir" value="src"/>
+    <property name="build.dir" value="build"/>
+    <property name="classes.dir" value="${build.dir}/classes"/>
+    <property name="jar.dir" value="jars"/>
+    <property name="main-class" value="jade.Boot"/>
+    <property name="lib.dir" value="libs"/>
+
+
+    <path id="include.jars">
+        <fileset dir="./libs">
+            <!--<include name="jars.jar"/>-->
+            <include name="commons-math3-3.2.jar"/>
+            <include name="jade.jar"/>
+            <include name="jcommon-1.0.17.jar"/>
+            <include name="jfreechart-1.0.14.jar"/>
+        </fileset>
+    </path>
+
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+    </target>
+
+    <target name="compile">
+        <fileset dir="${lib.dir}"/>
+        <mkdir dir="${classes.dir}"/>
+        <javac srcdir="${src.dir}"
+               destdir="${classes.dir}"
+               includeantruntime="true">
+            <classpath refid="include.jars">
+            </classpath>
+        </javac>
+    </target>
+
+    <target name="jar" depends="compile">
+        <mkdir dir="${jar.dir}"/>
+        <jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
+            <manifest>
+                <attribute name="Class-Path" value="${lib.dir}"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <!--java -classpath "./jars/social-optimisiation.jar:./libs/*" jade.Boot -agents god:agents.TheGodAgent-->
+
+    <target name="clean-build" depends="clean,jar"/>
+
+    <target name="main" depends="clean"/>
+</project>
